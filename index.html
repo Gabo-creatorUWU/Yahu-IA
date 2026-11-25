@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YAHU.IA • Asistente Institucional</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body {
+      background: radial-gradient(circle at top center, #1F1116 0%, #0B0B0E 65%);
+      color: #F4F4F6;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ENCABEZADO */
+    header {
+      background: rgba(20, 20, 25, 0.85);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid #D4AF37;
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 0.85rem; }
+    .jaguar-badge {
+      background: #0B0B0E;
+      border: 2px solid #D4AF37;
+      border-radius: 14px;
+      width: 48px;
+      height: 48px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px rgba(212, 175, 55, 0.25);
+    }
+    .jaguar-badge img, .hero-emblem img, .avatar-mini img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+    }
+    .brand h1 { margin: 0; font-size: 1.25rem; color: #fff; letter-spacing: 1px; font-weight: 800; }
+    .brand span { font-size: 0.78rem; color: #D4AF37; display: block; font-weight: 500; }
+    
+    .status {
+      font-size: 0.8rem;
+      color: #22C55E;
+      background: rgba(34, 197, 94, 0.12);
+      padding: 0.4rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-weight: 600;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: #22C55E;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #22C55E;
+    }
+
+    /* CONTENEDOR PRINCIPAL */
+    main {
+      flex: 1;
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      overflow: hidden;
+    }
+
+    #chatBox {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0.5rem;
+    }
+
+    /* PANTALLA DE BIENVENIDA VISUAL (HERO) */
+    .welcome-hero {
+      margin: auto;
+      text-align: center;
+      max-width: 580px;
+      padding: 1.5rem 1rem;
+      animation: fadeIn 0.5s ease;
+    }
+    .hero-emblem {
+      width: 115px;
+      height: 115px;
+      margin: 0 auto 1rem auto;
+      background: #0B0B0E;
+      border: 2px solid #D4AF37;
+      border-radius: 26px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(122, 28, 48, 0.45);
+    }
+    .welcome-hero h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.65rem;
+      color: #fff;
+    }
+    .welcome-hero h2 span { color: #D4AF37; }
+    .welcome-hero p {
+      color: #A8A8B3;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem;
+      text-align: left;
+    }
+    .info-card {
+      background: rgba(25, 25, 33, 0.9);
+      border: 1px solid #2E2E3A;
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .info-card:hover {
+      border-color: #D4AF37;
+      transform: translateY(-2px);
+      background: #1F1B22;
+    }
+    .info-card i { color: #D4AF37; flex-shrink: 0; margin-top: 2px; }
+    .info-card strong { display: block; font-size: 0.9rem; color: #fff; margin-bottom: 2px; }
+    .info-card small { color: #9A9AA6; font-size: 0.78rem; }
+
+    /* BURBUJAS DE MENSAJES */
+    .msg-row {
+      display: flex;
+      gap: 0.65rem;
+      align-items: flex-end;
+    }
+    .msg-row.user-row { justify-content: flex-end; }
+    .avatar-mini {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: #0B0B0E;
+      border: 1px solid #D4AF37;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .msg {
+      max-width: 78%;
+      padding: 0.9rem 1.15rem;
+      border-radius: 14px;
+      line-height: 1.5;
+      font-size: 0.95rem;
+      white-space: pre-wrap;
+    }
+    .bot {
+      background: #16161D;
+      border: 1px solid #2F2F3B;
+      border-left: 4px solid #D4AF37;
+      color: #F4F4F6;
+      border-bottom-left-radius: 4px;
+    }
+    .user {
+      background: linear-gradient(135deg, #851029 0%, #5E0B1D 100%);
+      border: 1px solid #D4AF37;
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+
+    /* BARRA INFERIOR */
+    .input-area {
+      display: flex;
+      gap: 0.65rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid #272730;
+    }
+    input {
+      flex: 1;
+      background: #14141A;
+      border: 1px solid #32323E;
+      color: #fff;
+      padding: 0.9rem 1.1rem;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: 0.2s;
+    }
+    input:focus { border-color: #D4AF37; box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15); }
+    button.enviar {
+      background: linear-gradient(135deg, #851029 0%, #630C1E 100%);
+      color: #fff;
+      border: 1px solid #D4AF37;
+      padding: 0 1.35rem;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      transition: 0.2s;
+    }
+    button.enviar:hover { background: #9E1835; transform: scale(1.02); }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="jaguar-badge">
+        <img src="yahu.jpeg" alt="Yahu" />
+      </div>
+      <div>
+        <h1>YAHU.IA</h1>
+        <span>Colegio Universitario de Yahualica</span>
+      </div>
+    </div>
+    <div class="status" id="dbStatus">
+      <span class="dot"></span>
+      <span id="statusText">Conectando...</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="chatBox">
+      <!-- PANTALLA DE BIENVENIDA VISUAL -->
+      <div class="welcome-hero" id="welcomeScreen">
+        <div class="hero-emblem">
+          <img src="yahu.jpeg" alt="Yahu Mascota" />
+        </div>
+        <h2>¡Qué tal, <span>campeón</span>!</h2>
+        <p>Soy <strong>Yahu</strong>, el asistente virtual inteligente del Colegio Universitario de Yahualica. Elige un tema rápido o escríbeme tu duda aquí abajo.</p>
+
+        <div class="cards-grid">
+          <div class="info-card" onclick="usarSugerencia('¿Cuál es el horario de clases?')">
+            <i data-lucide="clock" width="20" height="20"></i>
+            <div>
+              <strong>Horarios de Clase</strong>
+              <small>Modalidad sabatina y turnos</small>
+            </div>
+          </div>
+          <div class="info-card" onclick="usarSugerencia('Información sobre Ingeniería en TICs')">
+            <i data-lucide="cpu" width="20" height="20"></i>
+            <div>
+              <strong>Ingeniería en TICs</strong>
+              <small>Plan de estudios y perfil</small>
+            </div>
+          </div>
+          <div class="info-card" onclick="usarSugerencia('¿Dónde está ubicado el plantel?')">
+            <i data-lucide="map-pin" width="20" height="20"></i>
+            <div>
+              <strong>Ubicación del Plantel</strong>
+              <small>Dirección en San Francisco del Rincón</small>
+            </div>
+          </div>
+          <div class="info-card" onclick="usarSugerencia('Trámites y contacto escolar')">
+            <i data-lucide="file-text" width="20" height="20"></i>
+            <div>
+              <strong>Trámites y Control Escolar</strong>
+              <small>Inscripciones, constancias y pagos</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="Pregúntale a Yahu sobre horarios, trámites o carreras..." onkeydown="if(event.key==='Enter') enviarPregunta()" />
+      <button class="enviar" onclick="enviarPregunta()">
+        <span>Enviar</span>
+        <i data-lucide="send" width="16" height="16"></i>
+      </button>
+    </div>
+  </main>
+
+  <script>
+    lucide.createIcons();
+
+    const SUPABASE_URL = "https://ynwznwdckcgaumyfyovj.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_IvstEXmlJHq0yTBQMhgR8w_pCIQQgcF";
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const GEMINI_API_KEY = "AQ.Ab8RN6JDVk4ZnBHWqrX3DuOUhXO-tGgjQmD8MIlYBByFAKHuMg";
+
+    let conocimientoNube = "";
+
+    async function cargarConocimiento() {
+      const statusText = document.getElementById('statusText');
+      const statusEl = document.getElementById('dbStatus');
+      const { data, error } = await db.from('conocimiento_yahu').select('contenido').eq('id', 1).single();
+      if (error || !data) {
+        statusText.textContent = "Sin conexión";
+        statusEl.style.color = "#ff6b6b";
+      } else {
+        conocimientoNube = data.contenido;
+        statusText.textContent = "En línea";
+      }
+    }
+
+    function usarSugerencia(texto) {
+      document.getElementById('userInput').value = texto;
+      enviarPregunta();
+    }
+
+    function agregarMensaje(texto, tipo) {
+      const welcome = document.getElementById('welcomeScreen');
+      if (welcome) welcome.style.display = 'none';
+
+      const box = document.getElementById('chatBox');
+      const row = document.createElement('div');
+      row.className = tipo === 'user' ? 'msg-row user-row' : 'msg-row';
+
+      if (tipo === 'bot') {
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar-mini';
+        avatar.innerHTML = `<img src="yahu.jpeg" alt="Yahu" />`;
+        row.appendChild(avatar);
+      }
+
+      const div = document.createElement('div');
+      div.className = `msg ${tipo}`;
+      div.textContent = texto;
+      row.appendChild(div);
+
+      box.appendChild(row);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function enviarPregunta() {
+      const input = document.getElementById('userInput');
+      const pregunta = input.value.trim();
+      if (!pregunta) return;
+
+      agregarMensaje(pregunta, 'user');
+      input.value = "";
+
+      if (GEMINI_API_KEY) {
+        const modelos = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview"];
+        for (const modelo of modelos) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
+            const resp = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                systemInstruction: {
+                  parts: [{
+                    text: `Eres Yahu, la mascota jaguar y asistente virtual del Colegio Universitario de Yahualica. Hablas con un tono amigable, cercano y motivador (como "campeón"). Responde ÚNICAMENTE usando la siguiente información oficial. Si la respuesta no aparece en el texto, responde exactamente: NO_ENCONTRADO.\n\nINFORMACIÓN OFICIAL:\n${conocimientoNube}`
+                  }]
+                },
+                contents: [{
+                  role: "user",
+                  parts: [{ text: pregunta }]
+                }]
+              })
+            });
+
+            if (resp.ok) {
+              const json = await resp.json();
+              const respuestaIA = json.candidates[0].content.parts[0].text;
+
+              if (respuestaIA.includes("NO_ENCONTRADO")) {
+                await registrarSinRespuesta(pregunta);
+                agregarMensaje("¡Qué onda, campeón! Aún no tengo ese dato cargado en mi base de conocimiento, pero ya guardé tu pregunta para que el administrador la agregue pronto.", 'bot');
+              } else {
+                agregarMensaje(respuestaIA, 'bot');
+              }
+              return;
+            } else if (resp.status === 503) {
+              console.warn(`${modelo} saturado (503), cambiando al modelo de respaldo...`);
+              continue;
+            } else {
+              const errDetalle = await resp.text();
+              console.error("Error de Gemini (" + resp.status + "):", errDetalle);
+              break;
+            }
+          } catch (e) {
+            console.error("Error de red con Gemini:", e);
+          }
+        }
+      }
+
+      // Respaldo automático: búsqueda directa en Supabase
+      const palabras = pregunta.toLowerCase().split(/\s+/).filter(p => p.length > 3);
+      const lineas = conocimientoNube.split('\n').filter(l => l.trim() !== "");
+      const coincidencias = lineas.filter(linea =>
+        palabras.some(palabra => linea.toLowerCase().includes(palabra))
+      );
+
+      if (coincidencias.length > 0) {
+        agregarMensaje("Esto es lo que encontré en la información oficial del colegio:\n\n" + coincidencias.join('\n'), 'bot');
+      } else {
+        await registrarSinRespuesta(pregunta);
+        agregarMensaje("Aún no tengo información sobre eso en mi base de datos. Tu pregunta quedó registrada automáticamente para que el administrador la agregue.", 'bot');
+      }
+    }
+
+    async function registrarSinRespuesta(pregunta) {
+      await db.from('preguntas_sin_respuesta').insert([{ pregunta }]);
+    }
+
+    cargarConocimiento();
+  </script>
+</body>
+</html>

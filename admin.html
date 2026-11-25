@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Admin • YAHU.IA</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #0B0B0E; color: #F4F4F6; margin: 0; padding: 2rem; display: flex; justify-content: center; }
+    .box { background: #141419; border: 1px solid #7A1C30; border-top: 4px solid #D4AF37; border-radius: 12px; padding: 1.8rem; max-width: 720px; width: 100%; }
+    h1, h2 { color: #D4AF37; margin-top: 0; }
+    input, textarea { width: 100%; background: #0B0B0E; border: 1px solid #32323E; color: #fff; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; }
+    button { background: #7A1C30; color: #fff; border: 1px solid #D4AF37; padding: 0.7rem 1.3rem; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    button:hover { background: #9E2640; }
+    .btn-sec { background: #272730; border: none; margin-left: 0.5rem; }
+    .hidden { display: none; }
+    .pendiente { background: #1B1B22; padding: 0.6rem 0.9rem; border-left: 3px solid #D4AF37; border-radius: 6px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+    small { color: #A8A8B3; }
+  </style>
+</head>
+<body>
+
+  <!-- VISTA 1: LOGIN DE ADMINISTRADOR -->
+  <div class="box" id="loginBox">
+    <h1>🔐 Acceso Desarrollador • YAHU.IA</h1>
+    <p><small>Inicia sesión con tu cuenta autorizada para actualizar la base de datos de la universidad.</small></p>
+    <input type="email" id="email" value="yahu.ia.admin@gmail.com" placeholder="Correo de administrador" />
+    <input type="password" id="password" placeholder="Contraseña" />
+    <button onclick="iniciarSesion()">Entrar al Panel</button>
+    <p id="loginError" style="color:#ff6b6b; font-weight:bold;"></p>
+  </div>
+
+  <!-- VISTA 2: PANEL PARA ALIMENTAR LA IA -->
+  <div class="box hidden" id="adminBox">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h1>🐆 Cerebro de YAHU.IA (Modo Admin)</h1>
+      <button class="btn-sec" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+    <p><small>Todo lo que guardes aquí se actualizará al instante para todos los alumnos que entren al chat.</small></p>
+
+    <label><strong>Subir archivo (.txt / .json) para cargar texto rápido:</strong></label>
+    <input type="file" accept=".txt,.json,.md" onchange="leerArchivo(event)" />
+
+    <label><strong>Base de Conocimiento en la Nube:</strong></label>
+    <textarea id="textoConocimiento" rows="12"></textarea>
+
+    <button onclick="guardarEnNube()">💾 Guardar y Publicar para Todos</button>
+    <span id="estadoGuardado" style="margin-left:1rem; color:#22C55E; font-weight:bold;"></span>
+
+    <hr style="border-color:#272730; margin:1.8rem 0;" />
+
+    <h2>💡 Preguntas que los alumnos hicieron y la IA no supo responder:</h2>
+    <p><small>Agrégalas arriba para que Yahu.ia aprenda y bórralas cuando estén listas.</small></p>
+    <div id="listaPendientes"><small>Cargando preguntas...</small></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://ynwznwdckcgaumyfyovj.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_IvstEXmlJHq0yTBQMhgR8w_pCIQQgcF";
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function iniciarSesion() {
+      const errorBox = document.getElementById('loginError');
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+      errorBox.textContent = "Conectando...";
+
+      const { error } = await db.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        errorBox.textContent = "❌ Error: " + error.message;
+      } else {
+        errorBox.textContent = "";
+        mostrarPanel();
+      }
+    }
+
+    async function cerrarSesion() {
+      await db.auth.signOut();
+      location.reload();
+    }
+
+    async function mostrarPanel() {
+      document.getElementById('loginBox').classList.add('hidden');
+      document.getElementById('adminBox').classList.remove('hidden');
+
+      const { data } = await db.from('conocimiento_yahu').select('contenido').eq('id', 1).single();
+      if (data) document.getElementById('textoConocimiento').value = data.contenido;
+
+      cargarPendientes();
+    }
+
+    function leerArchivo(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        document.getElementById('textoConocimiento').value += "\n\n" + ev.target.result;
+      };
+      reader.readAsText(file);
+    }
+
+    async function guardarEnNube() {
+      const nuevoTexto = document.getElementById('textoConocimiento').value;
+      const estado = document.getElementById('estadoGuardado');
+      estado.textContent = "Guardando...";
+
+      const { error } = await db.from('conocimiento_yahu')
+        .update({ contenido: nuevoTexto, actualizado_en: new Date() })
+        .eq('id', 1);
+
+      estado.textContent = error ? "❌ Error: " + error.message : "✅ ¡Actualizado en la nube!";
+      setTimeout(() => estado.textContent = "", 4000);
+    }
+
+    async function cargarPendientes() {
+      const { data } = await db.from('preguntas_sin_respuesta').select('*').order('id', { ascending: false });
+      const contenedor = document.getElementById('listaPendientes');
+      if (!data || data.length === 0) {
+        contenedor.innerHTML = "<small>No hay preguntas pendientes por ahora.</small>";
+        return;
+      }
+      contenedor.innerHTML = data.map(p => `
+        <div class="pendiente">
+          <span>❓ ${p.pregunta}</span>
+          <button class="btn-sec" onclick="borrarPregunta(${p.id})">Listo ✓</button>
+        </div>
+      `).join('');
+    }
+
+    async function borrarPregunta(id) {
+      await db.from('preguntas_sin_respuesta').delete().eq('id', id);
+      cargarPendientes();
+    }
+
+    db.auth.getSession().then(({ data }) => { if (data.session) mostrarPanel(); });
+  </script>
+</body>
+</html>
