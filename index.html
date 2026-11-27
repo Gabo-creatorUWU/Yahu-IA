@@ -308,7 +308,7 @@
     const SUPABASE_ANON_KEY = "sb_publishable_IvstEXmlJHq0yTBQMhgR8w_pCIQQgcF";
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const GEMINI_API_KEY = "AQ.Ab8RN6JDVk4ZnBHWqrX3DuOUhXO-tGgjQmD8MIlYBByFAKHuMg";
+    const WORKER_URL = "https://yahu-api.yahu-ia-admin.workers.dev/";
 
     let conocimientoNube = "";
 
@@ -362,49 +362,47 @@
       agregarMensaje(pregunta, 'user');
       input.value = "";
 
-      if (GEMINI_API_KEY) {
-        const modelos = ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3-flash-preview"];
-        for (const modelo of modelos) {
-          try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${GEMINI_API_KEY}`;
-            const resp = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                systemInstruction: {
-                  parts: [{
-                    text: `Eres Yahu, la mascota jaguar y asistente virtual del Colegio Universitario de Yahualica. Hablas con un tono amigable, cercano y motivador (como "campeón"). Responde ÚNICAMENTE usando la siguiente información oficial. Si la respuesta no aparece en el texto, responde exactamente: NO_ENCONTRADO.\n\nINFORMACIÓN OFICIAL:\n${conocimientoNube}`
-                  }]
-                },
-                contents: [{
-                  role: "user",
-                  parts: [{ text: pregunta }]
+      const modelos = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+      for (const modelo of modelos) {
+        try {
+          const resp = await fetch(WORKER_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: modelo,
+              systemInstruction: {
+                parts: [{
+                  text: `Eres Yahu, la mascota jaguar y asistente virtual del Colegio Universitario de Yahualica. Hablas con un tono amigable, cercano y motivador (como "campeón"). Responde ÚNICAMENTE usando la siguiente información oficial. Si la respuesta no aparece en el texto, responde exactamente: NO_ENCONTRADO.\n\nINFORMACIÓN OFICIAL:\n${conocimientoNube}`
                 }]
-              })
-            });
+              },
+              contents: [{
+                role: "user",
+                parts: [{ text: pregunta }]
+              }]
+            })
+          });
 
-            if (resp.ok) {
-              const json = await resp.json();
-              const respuestaIA = json.candidates[0].content.parts[0].text;
+          if (resp.ok) {
+            const json = await resp.json();
+            const respuestaIA = json.candidates[0].content.parts[0].text;
 
-              if (respuestaIA.includes("NO_ENCONTRADO")) {
-                await registrarSinRespuesta(pregunta);
-                agregarMensaje("¡Qué onda, campeón! Aún no tengo ese dato cargado en mi base de conocimiento, pero ya guardé tu pregunta para que el administrador la agregue pronto.", 'bot');
-              } else {
-                agregarMensaje(respuestaIA, 'bot');
-              }
-              return;
-            } else if (resp.status === 503) {
-              console.warn(`${modelo} saturado (503), cambiando al modelo de respaldo...`);
-              continue;
+            if (respuestaIA.includes("NO_ENCONTRADO")) {
+              await registrarSinRespuesta(pregunta);
+              agregarMensaje("¡Qué onda, campeón! Aún no tengo ese dato cargado en mi base de conocimiento, pero ya guardé tu pregunta para que el administrador la agregue pronto.", 'bot');
             } else {
-              const errDetalle = await resp.text();
-              console.error("Error de Gemini (" + resp.status + "):", errDetalle);
-              break;
+              agregarMensaje(respuestaIA, 'bot');
             }
-          } catch (e) {
-            console.error("Error de red con Gemini:", e);
+            return;
+          } else if (resp.status === 503) {
+            console.warn(`${modelo} saturado (503), cambiando al modelo de respaldo...`);
+            continue;
+          } else {
+            const errDetalle = await resp.text();
+            console.error("Error de Gemini (" + resp.status + "):", errDetalle);
+            break;
           }
+        } catch (e) {
+          console.error("Error de red con el Worker:", e);
         }
       }
 
